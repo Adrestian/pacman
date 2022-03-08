@@ -12,6 +12,7 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
+from tabnanny import check
 from util import manhattanDistance
 from game import Directions
 import random, util
@@ -452,18 +453,17 @@ def betterEvaluationFunction(currentGameState):
         # Useful information you can extract from a GameState (pacman.py)
         
     pacmanPos = currentGameState.getPacmanPosition()
-    #print(f"{newPos=}") # Tuple(x,y), pacman's position
     food = currentGameState.getFood()
     foodList = food.asList()
 
-    #print(f"{newFood=}") # game.Grid object
     ghostStates = currentGameState.getGhostStates()
-    #print(f"{newGhostStates=}") # game.AgentState object
     newScaredTimes = [ghostState.scaredTimer for ghostState in ghostStates]
-    #print(f"{newScaredTimes=}") # list of int
 
-    ghostDistanceWt = 0.1
-    foodDistanceWt = 1
+    ghostDistanceWt = 0.001
+    foodDistanceWt = 10
+
+    awayFromGhostReward = 50
+    nFoodLeft = len(foodList)
 
     closestFoodDistance = float('inf')
     for i, fd in enumerate(foodList):
@@ -477,19 +477,40 @@ def betterEvaluationFunction(currentGameState):
     for i, ghostState in enumerate(ghostStates):
         ghostPosition = ghostState.getPosition()
         ghostDirection = ghostState.getDirection()
-        if ghostState.scaredTimer > 0:
+        if ghostState.scaredTimer > 2:
             # ghost is scared
-            scaredReward = 200
-            continue
-        else:
+            scaredReward = 20
+
+        else: # ghost is not scared
             ghostDistance = manhattanDistance(pacmanPos, ghostPosition)
-            if ghostDistance > 3:
-                totalGhostDistance += 500
-                continue
+            # if ghostDistance > 3:
+            #     totalGhostDistance += awayFromGhostReward
+            # else:
             totalGhostDistance += ghostDistance
     # away from ghost is good
-    
-    return  currentGameState.getScore() + (foodDistanceWt/closestFoodDistance+1) + ghostDistanceWt * totalGhostDistance + scaredReward
+
+    walls = currentGameState.getWalls()
+    m = walls.width
+    n = walls.height
+    nWalls = [0]
+    def checkWalls(i, j, count):
+        if i < 0 or i >= m or j < 0 or j >= n or walls[i][j] == False:
+            return
+        count[0] += 1
+        return
+    x, y = pacmanPos
+    checkWalls(x+1, y, nWalls)
+    checkWalls(x-1, y, nWalls)
+    checkWalls(x,   y+1, nWalls)
+    checkWalls(x,   y-1, nWalls)
+    WALLS_WT = 0
+    numWalls = nWalls[0]
+    if numWalls == 2:
+        WALLS_WT = -0.001
+    elif numWalls == 3:
+        WALLS_WT = -1
+        
+    return currentGameState.getScore() + (foodDistanceWt/(closestFoodDistance+1)) + ghostDistanceWt * totalGhostDistance + scaredReward - 4 * nFoodLeft + WALLS_WT * numWalls
 
 
 # Abbreviation
